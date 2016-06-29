@@ -145,7 +145,7 @@ subroutine setvar
   use input, only : npscal, ifstrs, ifflow, ifsplit, ngeom, ifheat
   use tstep, only : tolpdf, lastep, iostep, timeio, iocomm, nsteps, fintim
   use tstep, only : dtinit, dt, gtheta, betag, nmxnl, dtlag, nbd, ifield, tolnl
-  use tstep, only : prelax, nbdinp, tolrel, tolhdf, pi, ctarg, tolabs, nmxe
+  use tstep, only : prelax, torder, nbdinp, tolrel, tolhdf, pi, ctarg, tolabs, nmxe
   use tstep, only : nelfld, nmxh, nmxp
   use tstep, only : mixing_alpha, mixing_beta
 
@@ -232,9 +232,15 @@ subroutine setvar
   TOLREL = abs(PARAM(24))
   TOLABS = abs(PARAM(25))
   CTARG  = PARAM(26)
-  NBDINP = int(PARAM(27))
+  TORDER = int(param(27))
+  if (param(33) < 0) then
+    NBDINP = TORDER 
+  else
+    NBDINP = int(param(33))
+  endif
   NABMSH = int(PARAM(28))
 
+#if 0
   mixing_alpha = 1._dp
   mixing_beta = 1._dp
   if (NBDINP < 0) then
@@ -249,6 +255,7 @@ subroutine setvar
        mixing_beta = -1.4682977182989303_dp
     endif
   endif
+#endif
 
   if (nbdinp > lorder) then
       if (nid == 0) then
@@ -615,7 +622,7 @@ subroutine settime
   use geom,  only : ifsurt
   use input, only : ifmvbd, param, ifprint
   use tstep, only : dtlag, ab, abmsh, bd, dt, iocomm
-  use tstep, only : istep, nab, nbd, nbdinp, time, timef
+  use tstep, only : istep, torder, nab, nbd, nbdinp, time, timef
   implicit none
 
   integer :: ilag, irst, nabmsh, nbdmsh
@@ -640,12 +647,13 @@ subroutine settime
 
   CALL SETORDBD
   if (irst > 0) nbd = nbdinp
-  bd = 0._dp
-  CALL SETBD (BD,DTLAG,NBD)
   NAB = max(3, nbd)
   IF (ISTEP <= 3 .AND. irst <= 0) NAB = ISTEP
+
+  bd = 0._dp
+  CALL SETBD (BD,DTLAG,TORDER, NBD)
   ab = 0._dp
-  CALL SETABBD (AB,DTLAG,NAB,NBD)
+  CALL SETABBD (AB,DTLAG,TORDER, NAB,NBD)
   IF (IFMVBD) THEN
       NBDMSH = 1
       NABMSH = int(PARAM(28))

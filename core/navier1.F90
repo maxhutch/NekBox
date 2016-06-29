@@ -591,7 +591,7 @@ end subroutine makeabf
 !! Modified Adams-Bashforth coefficients to be used in con-
 !! junction with Backward Differentiation schemes (order NBD)
 !-----------------------------------------------------------------------
-subroutine setabbd (ab,dtlag,nab,nbd)
+subroutine setabbd (ab,dtlag,torder,nab,nbd)
   use kinds, only : DP
   use tstep, only : mixing_alpha
   use parallel, only : nid
@@ -599,8 +599,9 @@ subroutine setabbd (ab,dtlag,nab,nbd)
 
   REAL(DP), intent(out) :: AB(NAB)    !>!< Adams-Bashforth coefficients
   real(DP), intent(in)  :: DTLAG(nbd) !>!< Time-step history
-  integer,  intent(in)  :: nab        !>!< Order of AB scheme
-  integer,  intent(in)  :: nbd        !>!< Order of accompanying BDF scheme
+  integer,  intent(in)  :: torder     !>!< Order of the AB scheme
+  integer,  intent(in)  :: nab        !>!< Number of AB stages
+  integer,  intent(in)  :: nbd        !>!< Number of BDF stages 
 
   integer, parameter :: NDIM = 10
   !real(DP) :: dt0, dt1, dt2, dta, dts, dtb, dtc, dtd, dte
@@ -608,12 +609,39 @@ subroutine setabbd (ab,dtlag,nab,nbd)
   REAL(DP) :: EXMAT2(NDIM,NDIM),EXRHS2(NDIM)
   INTEGER :: IR(NDIM),IC(NDIM)
 !  real(DP), parameter :: mixing_alpha = 0.0195831791549432
-  real(DP) :: alpha
+  real(DP) :: alpha(NDIM)
+  integer :: torder_local, nab_tmp
 
-  CALL BDSYS (EXMAT,EXRHS,DTLAG,NAB,NDIM)
-  CALL LU    (EXMAT,NAB,NDIM,IR,IC)
-  CALL SOLVE (EXRHS,EXMAT,1,NAB,NDIM,IR,IC)
+  torder_local = min(torder, nab)
 
+  alpha = 0._dp
+  if (torder_local == nab) then
+    alpha(torder_local) = 1._dp
+  else if (torder_local == 2 .and. nab == 3 .and. nbd == 3) then
+    alpha(3) = 0.00513949945148418_dp
+    alpha(2) = 1._dp - alpha(3)
+  else if (torder_local == 2 .and. nab == 3 .and. nbd == 2) then
+    alpha(3) = 2._dp/3._dp
+    alpha(2) = 1._dp - alpha(3)
+  else if (torder_local == 2 .and. nab == 4) then
+    alpha(3) = 0.0
+    alpha(4) = -.25_dp
+    alpha(1) = 1._dp - alpha(3) - alpha(4)
+  endif
+
+  ab = 0._dp
+  do nab_tmp = torder_local, nab
+    CALL BDSYS (EXMAT,EXRHS,DTLAG,NAB_tmp,NDIM)
+    CALL LU    (EXMAT,NAB_tmp,NDIM,IR,IC)
+    CALL SOLVE (EXRHS,EXMAT,1,NAB_tmp,NDIM,IR,IC)
+    write(*,*) nab_tmp, exrhs(1:4)
+
+    ab(1:nab_tmp) = ab(1:nab_tmp) + alpha(nab_tmp) * exrhs(1:nab_tmp)
+  enddo
+
+  write(*,*) "AB: ", ab(1:nab)
+
+#if 0
   if (mixing_alpha < 1._dp .or. nab > nbd) then 
 
     CALL BDSYS (EXMAT2,EXRHS2,DTLAG,NAB-1,NDIM)
@@ -632,6 +660,7 @@ subroutine setabbd (ab,dtlag,nab,nbd)
   else
     ab(1:nab) = exrhs(1:nab)
   endif
+#endif
 
   return
 end subroutine setabbd
@@ -639,7 +668,7 @@ end subroutine setabbd
 !-----------------------------------------------------------------------
 !> \brief Compute backwards-difference (BDF) coefficients, order NBD
 !-----------------------------------------------------------------------
-subroutine setbd (bd,dtbd,nbd)
+subroutine setbd (bd,dtbd,torder,nbd)
   use kinds, only : DP
   use parallel, only : nid
   use tstep, only : mixing_beta
@@ -647,17 +676,61 @@ subroutine setbd (bd,dtbd,nbd)
 
   REAL(dp), intent(out) :: BD(*)   !>!< BDF coefficients
   real(dp), intent(in)  :: DTBD(*) !>!< Time-step history
-  integer , intent(in)  :: nbd     !>!< Order of BDF scheme
+  integer , intent(in)  :: torder  !>!< Order of BDF scheme
+  integer , intent(in)  :: nbd     !>!< Number of available stages of BDF scheme
 
   integer, PARAMETER :: NDIM = 10
   REAL(DP) :: BDMAT(NDIM,NDIM),BDRHS(NDIM), BDF
-  REAL(DP) :: BDMAT2(NDIM, NDIM), BDRHS2(NDIM), BDF2, BD2(NDIM)
+  REAL(DP) :: BDMAT2(NDIM, NDIM), BDRHS2(NDIM), BDF_tmp, BD_tmp(NDIM)
   INTEGER :: IR(NDIM),IC(NDIM)
   integer :: nsys, i, ibd
   integer :: NBD_tmp
 !  REAL(DP), PARAMETER :: beta_opt_bdf2 = -1.4627759516195247_dp !>!< BDF2OPT mixing coefficient 
   REAL(DP) :: one_m_beta
+  real(DP) :: beta(NDIM)
+  integer :: torder_local
 
+  torder_local = min(torder, nbd)
+
+  beta = 0._dp
+  if (torder_local == nbd) then
+    beta(torder_local) = 1._dp
+  else if (torder_local == 2 .and. nbd == 3) then
+    beta(3) = -1.490579000429718_dp
+    beta(2) = 1._dp - beta(3)
+  else if (torder_local == 2 .and. nbd == 4) then
+    beta(3) = -3.0_dp
+    beta(4) = -3.0_dp
+    beta(2) = 1.0_dp - beta(3) - beta(4)
+  endif
+
+  BD(1:NDIM) = 0._dp
+  do nbd_tmp = torder_local, nbd
+    BD_tmp = 0._dp
+    NSYS = nbd_tmp+1
+    CALL BDSYS (BDMAT,BDRHS,DTBD,nbd_tmp,NDIM)
+    CALL LU    (BDMAT,NSYS,NDIM,IR,IC)
+    CALL SOLVE (BDRHS,BDMAT,1,NSYS,NDIM,IR,IC)
+    DO I=1,NBD_tmp
+        BD_tmp(I) = BDRHS(I)
+    END DO
+    BDF_tmp = BDRHS(NBD_tmp+1)
+
+    !   Normalize
+    DO IBD=NBD_tmp,1,-1
+        BD_tmp(IBD+1) = BD_tmp(IBD)
+    END DO
+    BD_tmp(1) = 1.
+    DO IBD=1,NBD_tmp+1
+        BD_tmp(IBD) = BD_tmp(IBD)/BDF_tmp
+    END DO
+    write(*,*) nbd_tmp, BD_tmp(1:nbd_tmp+1)
+    BD(1:nbd_tmp+1) = BD(1:nbd_tmp+1) + beta(nbd_tmp) * BD_tmp(1:nbd_tmp+1)
+  enddo
+
+  write(*,*) "BD: ", bd(1:nbd+1)
+
+#if 0
   BD(1:ndim) = 0._dp; bdf = -1
   ! BDF(1) is trivial
   IF (NBD == 1) THEN
@@ -717,6 +790,7 @@ subroutine setbd (bd,dtbd,nbd)
       enddo
       
   ENDIF
+#endif
 !   write(6,1) (bd(k),k=1,nbd+1)
 ! 1 format('bd:',1p8e13.5)
 
