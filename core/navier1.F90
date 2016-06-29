@@ -637,33 +637,9 @@ subroutine setabbd (ab,dtlag,torder,nab,nbd)
     CALL BDSYS (EXMAT,EXRHS,DTLAG,NAB_tmp,NDIM)
     CALL LU    (EXMAT,NAB_tmp,NDIM,IR,IC)
     CALL SOLVE (EXRHS,EXMAT,1,NAB_tmp,NDIM,IR,IC)
-    write(*,*) nab_tmp, exrhs(1:4)
 
     ab(1:nab_tmp) = ab(1:nab_tmp) + alpha(nab_tmp) * exrhs(1:nab_tmp)
   enddo
-
-  write(*,*) "AB: ", ab(1:nab)
-
-#if 0
-  if (mixing_alpha < 1._dp .or. nab > nbd) then 
-
-    CALL BDSYS (EXMAT2,EXRHS2,DTLAG,NAB-1,NDIM)
-    CALL LU    (EXMAT2,NAB-1,NDIM,IR,IC)
-    CALL SOLVE (EXRHS2,EXMAT2,1,NAB-1,NDIM,IR,IC)
-    exrhs2(nab) = 0._dp
-
-    if (nab == 2 .and. nbd == 1) then
-      alpha = .5_dp
-    else if (nab == 3 .and. nbd == 2) then
-      alpha = 2._dp/3._dp
-    else
-      alpha = mixing_alpha
-    endif
-    ab(1:nab) = alpha * exrhs(1:nab)  + (1._dp-alpha)*exrhs2(1:nab)
-  else
-    ab(1:nab) = exrhs(1:nab)
-  endif
-#endif
 
   return
 end subroutine setabbd
@@ -730,73 +706,9 @@ subroutine setbd (bd,dtbd,torder,nbd)
     DO IBD=1,NBD_tmp+1
         BD_tmp(IBD) = BD_tmp(IBD)/BDF_tmp
     END DO
-    write(*,*) nbd_tmp, BD_tmp(1:nbd_tmp+1)
     BD(1:nbd_tmp+1) = BD(1:nbd_tmp+1) + beta(nbd_tmp) * BD_tmp(1:nbd_tmp+1)
   enddo
 
-  write(*,*) "BD: ", bd(1:nbd+1)
-
-#if 0
-  BD(1:ndim) = 0._dp; bdf = -1
-  ! BDF(1) is trivial
-  IF (NBD == 1) THEN
-      BD(1) = 1.
-      BDF   = 1.
-  ! BDF(>1) computed using a linear system
-  ELSEIF (NBD >= 2) THEN
-      NSYS = NBD+1
-      CALL BDSYS (BDMAT,BDRHS,DTBD,NBD,NDIM)
-      CALL LU    (BDMAT,NSYS,NDIM,IR,IC)
-      CALL SOLVE (BDRHS,BDMAT,1,NSYS,NDIM,IR,IC)
-      DO 30 I=1,NBD
-          BD(I) = BDRHS(I)
-      30 END DO
-      BDF = BDRHS(NBD+1)
-  endif 
-  !   Normalize
-  DO IBD=NBD,1,-1
-      BD(IBD+1) = BD(IBD)
-  END DO
-  BD(1) = 1.
-  DO IBD=1,NBD+1
-      BD(IBD) = BD(IBD)/BDF
-  END DO
-
-
-  IF (NBD >= 3) THEN
-      ! Compute the coefficients of BDF2 scheme
-      NBD_tmp = NBD-1
-      NSYS = NBD_tmp+1
-      BD2(1:ndim) = 0._dp; bdf2 = -1
-      CALL BDSYS (BDMAT2,BDRHS2,DTBD,NBD_tmp,NDIM)
-      CALL LU    (BDMAT2,NSYS,NDIM,IR,IC)
-      CALL SOLVE (BDRHS2,BDMAT2,1,NSYS,NDIM,IR,IC)
-
-      ! Mix BDF2 and BDF3 coefficients to get the optimized BDF2 scheme
-      ! In literature this is called BDF2opt(beta)
-      one_m_beta = 1._dp - mixing_beta
-      DO I=1,NBD_tmp
-          BD2(I) = BDRHS2(I)
-      END DO
-      ! Mix the last coefficient (for BDF2 this coeff is zero!!)
-      BDF2 = BDRHS2(NBD_tmp+1) 
-
-      !   Normalize
-      DO IBD=NBD_tmp,1,-1
-          BD2(IBD+1) = BD2(IBD)
-      END DO
-      BD2(1) = 1.
-      DO IBD=1,NBD_tmp+1
-          BD2(IBD) = BD2(IBD)/BDF2
-      END DO
-      BD2(NBD+1) = 0._dp
-
-      do IBD=1, NBD+1
-        BD(IBD) = mixing_beta*BD(IBD) + one_m_beta*BD2(IBD)
-      enddo
-      
-  ENDIF
-#endif
 !   write(6,1) (bd(k),k=1,nbd+1)
 ! 1 format('bd:',1p8e13.5)
 
