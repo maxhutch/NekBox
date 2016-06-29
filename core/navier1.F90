@@ -620,6 +620,9 @@ subroutine setabbd (ab,dtlag,torder,nab,nbd)
   else if (torder_local == 2 .and. nab == 3 .and. nbd == 3) then
     alpha(3) = 0.00513949945148418_dp
     alpha(2) = 1._dp - alpha(3)
+  else if (torder_local == 3 .and. nab == 4 .and. nbd == 4) then
+    alpha(4) = 0.0_dp
+    alpha(3) = 1.0_dp
   else if (torder_local == 2 .and. nab == 3 .and. nbd == 2) then
     alpha(3) = 2._dp/3._dp
     alpha(2) = 1._dp - alpha(3)
@@ -698,6 +701,9 @@ subroutine setbd (bd,dtbd,torder,nbd)
   else if (torder_local == 2 .and. nbd == 3) then
     beta(3) = -1.490579000429718_dp
     beta(2) = 1._dp - beta(3)
+  else if (torder_local == 3 .and. nbd == 4) then
+    beta(4) = -1.4682977182989303_dp
+    beta(3) = 1._dp - beta(4)
   else if (torder_local == 2 .and. nbd == 4) then
     beta(3) = -3.0_dp
     beta(4) = -3.0_dp
