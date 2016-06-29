@@ -22,6 +22,8 @@ env:
  - TEST_SUITE=eddy/test_bdf2.py
  - TEST_SUITE=eddy/test_bdf3.py
  - TEST_SUITE=eddy/test_bdf4.py
+ - TEST_SUITE=eddy/test_bdf23.py
+ - TEST_SUITE=eddy/test_bdf34.py
 
 before_install: 
  - docker pull nek5000/nekbox-tester
