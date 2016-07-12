@@ -508,5 +508,51 @@ subroutine rand_fld_h1(x)
 
   return
 end subroutine rand_fld_h1
-
 !-----------------------------------------------------------------------
+subroutine z_average(ua,u,w1,w2)
+!
+!     Compute the z average of quantity u() - assumes global tens.prod.
+!
+  use kinds, only : DP
+  use size_m, only : nx1, ny1, nz1, nelv, nelt
+  use parallel, only : lglel
+  use mesh, only : shape_x, ieg_to_xyz
+  use wz_m, only : wzm1
+
+  real(DP), intent(out) :: ua(nx1,ny1,shape_x(1),shape_x(2))
+  real(DP), intent(in)  ::  u(nx1,ny1,nz1,nelv)
+  real(DP), intent(out) :: w1(nx1,ny1,shape_x(1),shape_x(2))
+  real(DP), intent(out) :: w2(nx1,ny1,shape_x(1),shape_x(2))
+
+  integer e,ieg,nelxy
+  integer :: ixyz(3)
+  real(DP) dy2
+
+  nelxy = shape_x(1) * shape_x(2)
+
+  mxy = shape_x(1) * shape_x(2)*nx1*ny1
+  ua = 0._dp
+  w1 = 0._dp
+
+  do e=1,nelt
+     ieg = lglel(e)
+     ixyz = ieg_to_xyz(ieg)
+
+     do j=1,ny1
+     do i=1,nx1
+        dz2 = 1.0  !  Assuming uniform in "z" direction
+        do k=1,nz1
+           ua(i,j,ixyz(1),ixyz(2)) = ua(i,j,ixyz(1),ixyz(2))+dz2*wzm1(k)*u(i,j,k,e)
+           w1(i,j,ixyz(1),ixyz(2)) = w1(i,j,ixyz(1),ixyz(2))+dz2*wzm1(k) ! redundant but clear
+        enddo
+     enddo
+     enddo
+  enddo
+
+  call gop(ua,w2,'+  ',mxy)
+  call gop(w1,w2,'+  ',mxy)
+
+  ua = ua / w1 ! Normalize
+
+  return
+end subroutine z_average

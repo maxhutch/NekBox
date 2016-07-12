@@ -69,6 +69,7 @@ nek_comm.o \
 setprop.o \
 papi.o \
 gauss.o \
+stats.o \
 makeq.o makeq_aux.o \
 #qthermal.o  \
 #fft_custom_transpose_mod.o \
@@ -303,6 +304,7 @@ $(OBJDIR)/fast3d.o	:$S/fast3d.F90;			$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/dssum.o	:$S/dssum.F90;			$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/eigsolv.o	:$S/eigsolv.F90;		$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/gauss.o	:$S/gauss.F90;			$(F90) -c $(FL2) $< -o $@
+$(OBJDIR)/stats.o	:$S/stats.F90;			$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/planx.o	:$S/planx.F90;			$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/ssolv.o	:$S/ssolv.F90;			$(F90) -c $(FL2) $< -o $@
 $(OBJDIR)/gfdm_par.o	:$S/gfdm_par.F90;		$(F90) -c $(FL2) $< -o $@
